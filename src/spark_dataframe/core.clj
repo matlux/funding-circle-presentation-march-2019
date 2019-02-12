@@ -1,13 +1,17 @@
 (ns spark-dataframe.core
+  (:require [flambo.sql :refer [sql]])
   (:import (org.apache.spark.sql SparkSession)
            (org.apache.spark.sql Column)
            (org.apache.spark.sql functions)
     ;;(org.apache.spark.sql.functions$ MODULE$)
            ))
 
+(def inputData "/home/mathieu/Dropbox/Finance/investment-transactions/fundingCircleMonthly")
+(def outputData "/home/mathieu/Dropbox/Finance/investment-transactions/")
 
+(def df0File (str outputData  "/Matlux_funding-circles_test_2017-01_2018-10.cvs"))
 
-(def spark (.. (SparkSession/builder)
+(defonce spark (.. (SparkSession/builder)
                (appName "Simple app")
                (master "local[*]")
                getOrCreate))
@@ -18,7 +22,7 @@
 (def df (.. spark
             read
             (options opts)
-            (csv "/Users/mathieu/Dropbox/finance/investment-transactions/Matlux_rate-setter_LenderTransactions_all_2017-07-31.csv")))
+            (csv df0File)))
 
 (def df2 (.. df
              (withColumn "month" (functions/month (new Column "date")))
@@ -43,6 +47,7 @@
 
 
   (.show df2)
+  (.printSchema df2)
   )
 
 
