@@ -1,6 +1,6 @@
 (ns spark-dataframe.p2p-report.funding-circle
   (:require [flambo.sql :as sql :refer [create-custom-schema]]
-            [spark-dataframe.p2p-report.generic :refer [decimalType]]
+            [spark-dataframe.p2p-report.generic :as generic :refer [decimalType]]
             )
   (:import (org.apache.spark.sql SparkSession)
            (org.apache.spark.sql Column)
@@ -88,7 +88,8 @@
    })
 
 
-(def types (keys types2generic-types))
+(def types (keys fc-types))
+
 
 (comment
 
@@ -99,11 +100,16 @@
 
 (def type2regex (into {} (for [[genTypeKey genTypeVal] types2generic-types
                                [_ regex] genTypeVal]
-                           [genTypeKey (:EXTRACT_REGEX regex)])))
+                           [genTypeKey (fc-regexes (:EXTRACT_REGEX regex))])))
 
 (def type2generic-cat (into {} (for [[genTypeKey genTypeVal] types2generic-types
-                                     [_ regex] genTypeVal]
-                                 [genTypeKey (:EXTRACT_REGEX regex)])))
+                                     [type _] genTypeVal]
+                                 [genTypeKey (generic/generic-type2category type)
+                                  ])))
+(def type2generic-type (into {} (for [[genTypeKey genTypeVal] types2generic-types
+                                     [type _] genTypeVal]
+                                 [genTypeKey type
+                                  ])))
 
 (def schema (sql/create-custom-schema
                  [["Date", DataTypes/DateType, true]
@@ -111,3 +117,4 @@
                   ["Paid In", decimalType, true]
                   ["Paid Out", decimalType, true]
                   ]))
+

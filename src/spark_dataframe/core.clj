@@ -1,7 +1,8 @@
 (ns spark-dataframe.core
   (:require [flambo.sql :as sql :refer [create-custom-schema]]
-    [spark-dataframe.p2p-report.generic :refer [decimalType]]
-    [spark-dataframe.p2p-report.funding-circle :as fc]
+            [spark-dataframe.p2p-report.generic :refer [decimalType]]
+            [spark-dataframe.p2p-report.funding-circle :as fc]
+            [spark-dataframe.p2p-report.core :as report-core]
             )
   (:import (org.apache.spark.sql SparkSession)
            (org.apache.spark.sql Column)
@@ -37,6 +38,11 @@
 
 
 (comment
+
+  (.. (report-core/clean-data :funding-circle df)
+
+      (show 50 false))
+
   (new org.apache.spark.sql.Column "date")
   (new Column "date")
 
@@ -76,8 +82,6 @@
   (def df2 (.. df
                (withColumn "FC type" )))
 
-  df.withColumn("Loan Part ID", when(col("Description").rlike(LOAN_PART_REGEX_EXTRACT)
-, regexp_replace(col("Description"), LOAN_PART_REGEX_EXTRACT, "$1")))
 
   (def array [["test" DataTypes/StringType]])
 
