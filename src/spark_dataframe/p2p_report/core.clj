@@ -11,9 +11,9 @@
 
 (def provider-functions
   {:funding-circle {:types2generic-types fc/type2generic-type
-                   :type2generic-cat fc/type2generic-cat
-
-                   :type2regex fc/type2regex
+                    :type2generic-cat fc/type2generic-cat
+                    :type2regex fc/type2regex
+                    :type2col fc/fc-types
                    :column "Description"}
    :rate-setter {}})
 
@@ -41,7 +41,7 @@
          :rate-setter))
 
 (defn providerType [provider]
-  ((getFillInTypeFct provider) fc/fc-types))
+  ((getFillInTypeFct provider) (get-in provider-functions [provider :type2col])))
 
 (defn genType [provider]
   ((getFillInTypeFct provider)
