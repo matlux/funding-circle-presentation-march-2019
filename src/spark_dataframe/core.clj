@@ -1,17 +1,30 @@
 (ns spark-dataframe.core
   (:refer-clojure :exclude [group-by])
   (:require [flambo.sql :as sql :refer [create-custom-schema group-by agg order-by window over]]
-            [flambo.sql-functions :as sqlf :refer [col]]
+            [flambo.sql-functions :refer [col]]
+            [flambo.api :as api]
+            [clojure.reflect :refer [reflect]]
+            [clojure.pprint :refer [print-table]]
+
             [spark-dataframe.p2p-report.generic :refer [decimalType]]
             [spark-dataframe.p2p-report.funding-circle :as fc]
             [spark-dataframe.p2p-report.core :as report-core]
-            [spark-dataframe.p2p-report.generic :as generic])
+            [spark-dataframe.p2p-report.generic :as generic]
+            [spark-dataframe.sql :refer [as-col-array lit pivot sum create-dataframe]]
+            )
   (:import (org.apache.spark.sql SparkSession)
+           (org.apache.spark SparkContext)
+           (org.apache.spark.api.java JavaSparkContext)
            (org.apache.spark.sql Column)
-           (org.apache.spark.sql functions)
+           (org.apache.spark.sql functions RowFactory)
            (org.apache.spark.sql.types DataTypes)
     ;;(org.apache.spark.sql.functions$ MODULE$)
-           (org.apache.spark.sql.expressions Window)))
+           (org.apache.spark.sql.expressions Window)
+           (org.apache.spark SparkContext)))
+
+
+(defn methods-info [obj]
+  (print-table (sort-by :name (filter :exception-types (:members (reflect obj))))))
 
 (def inputData "/home/mathieu/Dropbox/Finance/investment-transactions/fundingCircleMonthly")
 (def outputData "/home/mathieu/Dropbox/Finance/investment-transactions/")
@@ -22,6 +35,9 @@
                (appName "Simple app")
                (master "local[*]")
                getOrCreate))
+
+(defonce java-sc (new JavaSparkContext (.sparkContext spark
+                                                      )))
 (def  opts {"header" "true",
                      "date" "yyyy-MM-dd",
             "inferSchema" "true"})
@@ -33,28 +49,134 @@
             (options opts)
             (csv df0File)))
 
-(def df2 (.. df
-             (withColumn "month" (functions/month (new Column "date")))
-             (withColumn "year" (functions/year (new Column "date")))))
-
-
-(defn as-col-array
-  [exprs]
-  (into-array Column (map sqlf/col exprs)))
-
-(defn lit [x] (functions/lit x))
-
-(defn pivot
-  "pivot grouped data using the specified expressions"
-  [df expr xs]
-  (.pivot df (sqlf/col expr) xs))
 
 
 
-(defn sum [x]
-  (functions/sum x))
 
 (comment
+
+
+  ;; test dataframe
+  (def test-df (create-dataframe spark
+                                 [["col1", DataTypes/StringType, true]
+                                  ["col2", DataTypes/LongType, true]]
+                                  '( ( "bar1.1" 2)
+                                    ( "bar1.2" 5))))
+
+  (.show test-df 50 false)
+
+  (def test-df2 (.. test-df
+       (withColumn "+1" (.plus (col "col2") (lit 1)))))
+
+  (.show test-df2 50 false)
+  (.printSchema test-df2)
+
+  (.. test-df2
+      (withColumn "ab" (.plus (col "col2") (col "+1")))
+      (show 50 false))
+
+
+  ;; show how to parse a dataframe
+
+  (.. df
+      (filter (.rlike (functions/col "Description") "Loan Part ID"))
+      (show 50 false))
+
+
+  (-> df
+      (group-by (functions/col "Description"))
+      .count
+      (.show 50 false)
+      )
+  (.. df
+      (withColumn "foobar"
+                  (functions/when
+                    (.rlike (functions/col "Description") "Loan Part ID")
+                    (functions/lit "LOANPART")))
+      (.. df
+          (withColumn "foobar"
+                      (.. (functions/when
+                            (.rlike (functions/col "Description") "Loan Part ID")
+                            (functions/lit "LOANPART"))
+                          (when (.rlike (functions/col "Description") "EPDQ")
+                            (functions/lit "EPDQ"))))
+
+          (show 50 false)))
+
+
+
+
+  (def df1 (report-core/clean-data :funding-circle df))
+
+  (.show df1 50 false)
+
+  (def df2 (report-core/generate-report1 df1 "2018-04-01" "2018-12-01"))
+  (.. (report-core/generate-report1 df1 "2017-01-01" "2018-12-01")
+      (show 50 false))
+
+
+
+
+
+
+
+
+
+
+
+  (def schema-test (sql/create-custom-schema
+                     [["col1", DataTypes/StringType, true]
+                      ["col2", DataTypes/StringType, true]]))
+
+  (let [schema-test (sql/create-custom-schema
+                      [["col1", DataTypes/StringType, true]
+                       ["col2", DataTypes/StringType, true]])
+
+        test-data (map into-array '(("bar1.1", "bar2.1") ("bar1.2", "bar2.2")))
+        list-array-data (api/parallelize java-sc test-data)
+        row-rdd (api/map list-array-data #(RowFactory/create %))
+        test-df (.createDataFrame spark
+                                  row-rdd schema-test)
+        ]
+    (.show test-df 50 false)
+    ;test-df
+    )
+
+  ()
+  (api/parallelize java-sc test-data)
+  (-> (api/map into-array '(("bar1.1", "bar2.1") ("bar1.2", "bar2.2"))
+           first type))
+
+  (let [test-data ["{\"col1\":4,\"col2\":\"a\"}" "{\"col1\":6,\"col2\":\"a\"}" "{\"col1\":5,\"col2\":\"b\"}"]
+        test-df (sql/json-rdd spark (api/parallelize java-sc test-data))]
+    (.show test-df 50 false))
+
+
+  (def schema-test (sql/create-custom-schema
+                [["col1", DataTypes/StringType, true]
+                 ["col2", DataTypes/StringType, true]]))
+  (def schema (sql/create-custom-schema
+                [["col1", DataTypes/DateType, true]
+                 ["col2", DataTypes/StringType, true]
+                 ["col3", decimalType, true]
+                 ]))
+  (new JavaSparkContext (.sparkContext spark
+                                       ))
+
+  (let [test-data ["{\"col1\":4,\"col2\":\"a\"}" "{\"col1\":6,\"col2\":\"a\"}" "{\"col1\":5,\"col2\":\"b\"}"]
+        test-df (sql/json-rdd spark (api/parallelize java-sc test-data))]
+    (.show test-df 50 false))
+
+  (methods-info spark)
+
+
+  (def df (api/parallelize))
+
+  (.show df)
+  (.printSchema df)
+
+  (.show df2)
+  (.printSchema df2)
 
   (type df)
 
@@ -65,30 +187,10 @@
   (sql/order-by df "year" "month")
 
   (def df1 (report-core/clean-data :funding-circle df))
-  (def final-report
-    (let [start-date "2018-04-01"
-         end-date "2018-12-01"
-         w-spec (-> (window)
-                    (order-by "year" "month")
-                    (.rowsBetween Long/MIN_VALUE 0))
-         pivoted-report (-> df1
-                            (.filter (.gt (col "date") (lit start-date)))
-                            (.filter (.lt (col "date") (lit end-date)))
-                            (group-by "year" "month")
-                            (.pivot "cat" (list "TRANSFER cat" "INTEREST cat" "FEE cat" "RECOVERY cat"))
-                            (agg (sum "amount"))
-                            (order-by "year" "month"))
-        final-report (.. pivoted-report
-                         (withColumn "cum interest" (-> :GENERIC_INTEREST_CATEGORY
-                                                  generic/generic-categories2col
-                                                  col
-                                                  sum
-                                                  (over w-spec)
-                                                  )))
-         ]
-                        (.. final-report (show 50 false))
-                        ;pivoted-report
-     ))
+  (def df2 (report-core/generate-report1 df1 "2018-04-01" "2018-12-01"))
+  (.. (report-core/generate-report1 df1 "2017-01-01" "2018-12-01")
+      (show 50 false))
+
 
   (.col pivoted-report (generic/generic-categories2col :GENERIC_TRANSFER_CATEGORY))
   final-report (.. pivoted-report
@@ -117,7 +219,7 @@
 
   (.. df3
       (show 500 false))
-  dfrs0.filter(col("Type").rlike("PartialSelloutRepayment")).show(500, false)
+  dfrs0.filter (col ("Type") .rlike ("PartialSelloutRepayment")) .show (500, false)
 
   (.. df
       (filter (.rlike (functions/col "Description") "Loan Part ID"))
@@ -127,53 +229,50 @@
       (withColumn "foobar"
                   (functions/when
                     (.rlike (functions/col "Description") "Loan Part ID")
-                    (functions/lit "LOANPART") ))
+                    (functions/lit "LOANPART")))
       (.. df
           (withColumn "foobar"
                       (.. (functions/when
-                         (.rlike (functions/col "Description") "Loan Part ID")
-                         (functions/lit "LOANPART"))
+                            (.rlike (functions/col "Description") "Loan Part ID")
+                            (functions/lit "LOANPART"))
                           (when (.rlike (functions/col "Description") "EPDQ")
                             (functions/lit "EPDQ"))))
 
           (show 50 false))
 
 
-  (for [genTypeInfoMap fc/types2generic-types
-        genTypeInfo (._2 genTypeInfoMap)]
-    [(._1 genTypeInfoMap) (:EXTRACT_REGEX (._2 genTypeInfo))])
+      (for [genTypeInfoMap fc/types2generic-types
+            genTypeInfo (._2 genTypeInfoMap)]
+        [(._1 genTypeInfoMap) (:EXTRACT_REGEX (._2 genTypeInfo))])
 
-  (def df2 (.. df
-               (withColumn "FC type" )))
-
-
-  (def array [["test" DataTypes/StringType]])
-
-  (defn create-custom-schema [array]
-    (-> (map #(DataTypes/createStructField (first %) (second %) (nth % 2))  array)
-        DataTypes/createStructType))
-
-  (create-custom-schema ["test" DataTypes/StringType])
-
-  (sql/create-custom-schema
-    [["id" DataTypes/IntegerType true]
-     ["name" DataTypes/StringType true]
-     ["seq" DataTypes/IntegerType true]])
-  df
-
-  ;;org.apache.spark.sql.Column$/MODULE$
-
-  ;;(new org.apache.spark.sql.functions$/MODULE)
-  (functions/month (new Column "date"))
-
-  ;;(. month (. month org.apache.spark.sql.functions$/MODULE$ (new Column "date")))
+      (def df2 (.. df
+                   (withColumn "FC type")))
 
 
+      (def array [["test" DataTypes/StringType]])
 
-  (.show df)
-  (.printSchema df)
-  )
-  )
+      (defn create-custom-schema [array]
+        (-> (map #(DataTypes/createStructField (first %) (second %) (nth % 2)) array)
+            DataTypes/createStructType))
+
+      (create-custom-schema ["test" DataTypes/StringType])
+
+      (sql/create-custom-schema
+        [["id" DataTypes/IntegerType true]
+         ["name" DataTypes/StringType true]
+         ["seq" DataTypes/IntegerType true]])
+      df
+
+      ;;org.apache.spark.sql.Column$/MODULE$
+
+      ;;(new org.apache.spark.sql.functions$/MODULE)
+      (functions/month (new Column "date"))
+
+      ;;(. month (. month org.apache.spark.sql.functions$/MODULE$ (new Column "date")))
+
+      )
+  )                                                         ;
+
 
 
 (defn foo
