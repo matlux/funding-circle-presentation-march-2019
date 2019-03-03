@@ -111,6 +111,8 @@
                                  [genTypeKey type
                                   ])))
 
+(def regexes (map type2regex (keys type2generic-type)))
+
 (def schema (sql/create-custom-schema
                  [["Date", DataTypes/DateType, true]
                   ["Description", DataTypes/StringType, true]

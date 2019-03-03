@@ -14,7 +14,7 @@
 
 
 (def provider-functions
-  {:funding-circle {:types2generic-types fc/type2generic-type
+  {:funding-circle {:type2generic-type fc/type2generic-type
                     :type2generic-cat fc/type2generic-cat
                     :type2regex fc/type2regex
                     :type2col fc/fc-types
@@ -22,15 +22,29 @@
    :rate-setter {}})
 
 
+
+(defn validate-cat [providerType df]
+  (let [{:keys [type2generic-type type2regex column]} (provider-functions providerType)
+        regexes (map type2regex (keys type2generic-type))
+        dfcat (->> regexes
+                   (map (fn [regex] (.. df
+                                  (filter (.rlike (col column) regex)))) )
+                   (reduce (fn [acc df] (.union acc df))))]
+        [(= (.count dfcat) (.count df)) (order-by (.except df dfcat) (functions/asc "Date"))]
+    ))
+
 (defn fillinType [prov-types providerType2Regex type2col c f]
   (reduce  (fn [acc t] (.. acc
                            (when (.rlike (functions/col c) (providerType2Regex t))
                              (functions/lit (f t)))))
            (functions/when
              (.rlike (functions/col c) (providerType2Regex (first prov-types)))
-             (functions/lit (f (first prov-types)))) (next prov-types)))
+             (functions/lit (f (first prov-types))))
+           (next prov-types)))
 
 (comment
+
+  (def regexes (map fc/type2regex (keys fc/type2generic-type)))
   (def prov-types fc/types)
   (def providerType2Regex fc/type2regex)
 
@@ -51,7 +65,7 @@
   ((getFillInTypeFct provider)
     (fn [genType]
       (generic/generic-types2col
-        ((get-in provider-functions [:funding-circle :types2generic-types]) genType)))))
+        ((get-in provider-functions [:funding-circle :type2generic-type]) genType)))))
 
 (defn genCat [provider]
   ((getFillInTypeFct provider)

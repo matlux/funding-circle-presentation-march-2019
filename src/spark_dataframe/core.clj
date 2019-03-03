@@ -51,25 +51,29 @@
 
 
 
-
+(def df1 (report-core/clean-data :funding-circle df))
 
 (comment
 
 
   ;; test dataframe
   (def test-df (create-dataframe spark
-                                 [["col1", DataTypes/StringType, true]
-                                  ["col2", DataTypes/LongType, true]]
-                                  '( ( "bar1.1" 2)
-                                    ( "bar1.2" 5))))
+                                 [["Description", DataTypes/StringType, true]
+                                  ["amount", DataTypes/LongType, true]]
+                                  '( ( "interest payment 1" 2)
+                                     ( "transfer" 40)
+                                     ( "interest payment 2" 4)
+                                    ( "fee" 1)
+                                     ( "interest payment 3" 3))))
 
   (.show test-df 50 false)
+  (.printSchema test-df)
 
-  (def test-df2 (.. test-df
-       (withColumn "+1" (.plus (col "col2") (lit 1)))))
+  (.. test-df
+      (withColumn "pence" (.multiply (col "amount") (lit 100)))
+      (show 50 false))
 
-  (.show test-df2 50 false)
-  (.printSchema test-df2)
+
 
   (.. test-df2
       (withColumn "ab" (.plus (col "col2") (col "+1")))
@@ -77,6 +81,10 @@
 
 
   ;; show how to parse a dataframe
+  (.show df 50 false)
+  (.count df)
+
+
 
   (.. df
       (filter (.rlike (functions/col "Description") "Loan Part ID"))
@@ -84,26 +92,55 @@
 
 
   (-> df
-      (group-by (functions/col "Description"))
+      (group-by (col "Description"))
       .count
       (.show 50 false)
       )
+  (-> df
+      (group-by (.rlike (col "Description") "Interest repayment for loan part (.+)"))
+      .count
+      (.show 50 false)
+      )
+
   (.. df
       (withColumn "foobar"
-                  (functions/when
-                    (.rlike (functions/col "Description") "Loan Part ID")
-                    (functions/lit "LOANPART")))
-      (.. df
-          (withColumn "foobar"
-                      (.. (functions/when
-                            (.rlike (functions/col "Description") "Loan Part ID")
-                            (functions/lit "LOANPART"))
-                          (when (.rlike (functions/col "Description") "EPDQ")
-                            (functions/lit "EPDQ"))))
+                  (when
+                    (.rlike (col "Description") "Loan Part ID")
+                    (lit "LOANPART")))
+      (show 50 false)
+      )
+  (.. df
+      (withColumn "foobar"
+                  (-> (when
+                        (.rlike (col "Description") "Loan Part ID")
+                        (lit "LOANPART"))
+                      (.when (.rlike (col "Description") "EPDQ")
+                        (lit "EPDQ"))))
 
-          (show 50 false)))
+      (show 50 false))
 
+  (let [
 
+        dfcat (->> fc/regexes
+                   (map (fn [regex] (.. df
+                                        (withColumn "foobar"
+                                          (when (.rlike (col "Description") regex)
+                                            (lit regex))))) )
+                   (reduce (fn [acc df] (.union acc df))))]
+    (.show dfcat 50 false)
+    ;(.count dfcat)
+    ;
+    )
+
+  (let [
+
+        dfcat (->> fc/regexes
+                   (map (fn [regex] (.. df
+                                        (filter (.rlike (col "Description") regex)))) )
+                   (reduce (fn [acc df] (.union acc df))))]
+    (.count dfcat)
+    ;(.show dfcat 50 false)
+    )
 
 
   (def df1 (report-core/clean-data :funding-circle df))
@@ -114,7 +151,9 @@
   (.. (report-core/generate-report1 df1 "2017-01-01" "2018-12-01")
       (show 50 false))
 
-
+  (let [[correct? missing]  (report-core/validate-cat :funding-circle df)]
+    (.show missing)
+    correct?)
 
 
 
@@ -185,6 +224,10 @@
   (generic/generic-categories2col :GENERIC_TRANSFER_CATEGORY)
   (sql-sort df "year" "month")
   (sql/order-by df "year" "month")
+
+  (let [[correct? missing]  (report-core/validate-cat :funding-circle df)]
+    (.show missing)
+    correct?)
 
   (def df1 (report-core/clean-data :funding-circle df))
   (def df2 (report-core/generate-report1 df1 "2018-04-01" "2018-12-01"))
