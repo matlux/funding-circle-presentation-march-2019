@@ -35,11 +35,11 @@
 
 (defn fillinType [prov-types providerType2Regex type2col c f]
   (reduce  (fn [acc t] (.. acc
-                           (when (.rlike (functions/col c) (providerType2Regex t))
-                             (functions/lit (f t)))))
+                           (when (.rlike (col c) (providerType2Regex t))
+                             (lit (f t)))))
            (functions/when
-             (.rlike (functions/col c) (providerType2Regex (first prov-types)))
-             (functions/lit (f (first prov-types))))
+             (.rlike (col c) (providerType2Regex (first prov-types)))
+             (lit (f (first prov-types))))
            (next prov-types)))
 
 (comment
@@ -107,14 +107,47 @@
                            (agg (sum "amount"))
                            (order-by "year" "month"))
         final-report (-> pivoted-report
-                         (.withColumn "cum BT" (over (sum (cat2col :GENERIC_INTEREST_CATEGORY)) w-spec))
+                         (.withColumn "cum BT" (over (sum (cat2col :GENERIC_TRANSFER_CATEGORY)) w-spec))
                          (.withColumn "cum interest" (over (sum (cat2col :GENERIC_INTEREST_CATEGORY)) w-spec))
-                         (.withColumn "cum fee" (over (sum (cat2col :GENERIC_INTEREST_CATEGORY)) w-spec))
-                         (.withColumn "cum recovery" (over (sum (cat2col :GENERIC_INTEREST_CATEGORY)) w-spec))
+                         (.withColumn "cum fee" (over (sum (cat2col :GENERIC_FEE_CATEGORY)) w-spec))
+                         (.withColumn "cum recovery" (over (sum (cat2col :GENERIC_PRINCIPAL_RECOVERY_CATEGORY)) w-spec))
+                         (.withColumn "balance" (-> (.plus (col "cum interest") (col "cum fee")) (.plus (col "cum BT"))))
                          (.withColumn "cum return" (.plus (col "cum interest") (col "cum fee")))
                          (select "year","month" (cat2col :GENERIC_TRANSFER_CATEGORY) "cum BT" (cat2col :GENERIC_INTEREST_CATEGORY)
                                  "cum interest" (cat2col :GENERIC_FEE_CATEGORY) "cum fee" (cat2col :GENERIC_PRINCIPAL_RECOVERY_CATEGORY)
-                                 "cum recovery" "cum return")
+                                 "cum recovery" "cum return" "balance")
+                         )
+        ]
+    ;(.. final-report (show 50 false))
+    ;pivoted-report
+    final-report
+    ))
+
+(defn generate-report2 [df start-date end-date]
+  (let [ ;start-date "2018-04-01"
+        ;end-date "2018-12-01"
+        w-spec (-> (window)
+                   (order-by "date")
+                   (.rowsBetween Long/MIN_VALUE 0))
+        pivoted-report (-> df
+                           (.filter (.gt (col "date") (lit start-date)))
+                           (.filter (.lt (col "date") (lit end-date)))
+                           (group-by "date")
+                           (.pivot "cat"
+                                   (map generic/generic-categories2col
+                                        '(:GENERIC_TRANSFER_CATEGORY :GENERIC_INTEREST_CATEGORY :GENERIC_FEE_CATEGORY :GENERIC_PRINCIPAL_RECOVERY_CATEGORY)))
+                           (agg (sum "amount"))
+                           (order-by "date"))
+        final-report (-> pivoted-report
+                         (.withColumn "cum BT" (over (sum (cat2col :GENERIC_TRANSFER_CATEGORY)) w-spec))
+                         (.withColumn "cum interest" (over (sum (cat2col :GENERIC_INTEREST_CATEGORY)) w-spec))
+                         (.withColumn "cum fee" (over (sum (cat2col :GENERIC_FEE_CATEGORY)) w-spec))
+                         (.withColumn "cum recovery" (over (sum (cat2col :GENERIC_PRINCIPAL_RECOVERY_CATEGORY)) w-spec))
+                         (.withColumn "balance" (-> (.plus (col "cum interest") (col "cum fee")) (.plus (col "cum BT"))))
+                         (.withColumn "cum return" (.plus (col "cum interest") (col "cum fee")))
+                         (select "date" (cat2col :GENERIC_TRANSFER_CATEGORY) "cum BT" (cat2col :GENERIC_INTEREST_CATEGORY)
+                                 "cum interest" (cat2col :GENERIC_FEE_CATEGORY) "cum fee" (cat2col :GENERIC_PRINCIPAL_RECOVERY_CATEGORY)
+                                 "cum recovery" "cum return" "balance")
                          )
         ]
     ;(.. final-report (show 50 false))

@@ -14,6 +14,7 @@
 
 (defn lit [x] (functions/lit x))
 
+
 (defn pivot
   "pivot grouped data using the specified expressions"
   [df expr xs]

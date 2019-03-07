@@ -69,30 +69,91 @@
   (.show test-df 50 false)
   (.printSchema test-df)
 
-  (.. test-df
-      (withColumn "pence" (.multiply (col "amount") (lit 100)))
+  (..
+      (.withColumn test-df "pence" (.multiply (col "amount") (lit 100)))
       (show 50 false))
 
 
 
-  (.. test-df2
-      (withColumn "ab" (.plus (col "col2") (col "+1")))
-      (show 50 false))
+  (-> (.withColumn test-df "category"
+                   (functions/when
+                     (.rlike (col "Description") "interest payment")
+                     (lit "interest payment"))
+                   )
+      (.show 50 false))
 
+  (-> test-df
+      (.withColumn "category"
+                   (-> (functions/when
+                         (.rlike (col "Description") "interest payment")
+                         (lit "interest payment"))
+                       (.when (.rlike (col "Description") "transfer")
+                              (lit "transfer"))
+                       (.when (.rlike (col "Description") "fee")
+                              (lit "fee"))))
+
+      (.show 50 false))
+
+  (->
+      (.withColumn test-df "category"
+                   (-> (functions/when
+                         (.rlike (col "Description") "interest payment")
+                         (lit "interest payment"))
+                       (.when (.rlike (col "Description") "transfer")
+                              (lit "transfer"))
+                       (.when (.rlike (col "Description") "fee")
+                              (lit "fee"))))
+      (group-by (col "category"))
+      .count
+      (.show 50 false))
+
+  (->
+      (.withColumn test-df "category"
+                   (-> (functions/when
+                         (.rlike (col "Description") "interest payment")
+                         (lit "interest payment"))
+                       (.when (.rlike (col "Description") "transfer")
+                              (lit "transfer"))
+                       (.when (.rlike (col "Description") "fee")
+                              (lit "fee"))))
+      (group-by (col "category"))
+      (agg (sum "amount") (functions/count "*"))
+      ;.count
+      (.show 50 false))
 
   ;; show how to parse a dataframe
+
+
+  (def df2 (.. spark
+              read
+              (schema (sql/create-custom-schema
+                        [["Date", DataTypes/DateType, true]
+                         ["Description", DataTypes/StringType, true]
+                         ["Paid In", decimalType, true]
+                         ["Paid Out", decimalType, true]
+                         ]))
+              (options opts)
+              (csv (str outputData "/Matlux_funding-circle_all_2017-01_2018-10.cvs"))))
+
   (.show df 50 false)
   (.count df)
 
 
 
-  (.. df
-      (filter (.rlike (functions/col "Description") "Loan Part ID"))
-      (show 50 false))
 
 
   (-> df
       (group-by (col "Description"))
+      .count
+      (.show 50 false)
+      ;.count
+      )
+
+  (.. (.filter df (.rlike (col "Description") "Loan Part ID"))
+      count)
+
+  (-> df
+      (group-by (.rlike (col "Description") "Loan Part ID"))
       .count
       (.show 50 false)
       )
@@ -101,36 +162,47 @@
       .count
       (.show 50 false)
       )
-
-  (.. df
-      (withColumn "foobar"
-                  (when
-                    (.rlike (col "Description") "Loan Part ID")
-                    (lit "LOANPART")))
-      (show 50 false)
+  (-> df
+      (group-by (.rlike (col "Description") "Loan offer on (.+) - (.+)"))
+      .count
+      (.show 50 false)
       )
-  (.. df
-      (withColumn "foobar"
-                  (-> (when
-                        (.rlike (col "Description") "Loan Part ID")
-                        (lit "LOANPART"))
+
+  (-> df
+      (.withColumn "category"
+                   (functions/when
+                     (.rlike (col "Description") "Loan Part ID")
+                     (lit "Loan Part ID")))
+      (.show 50 false)
+      )
+
+  (-> df
+      (.withColumn "category"
+                  (functions/when
+                    (.rlike (col "Description") "Loan Part ID")
+                    (lit "Loan Part ID")))
+      (group-by (col "category"))
+      .count
+      (.show 50 false)
+      )
+  (-> df
+      (.withColumn "category"
+                  (-> (functions/when
+                        (.rlike (col "Description") "Interest repayment for loan part (.+)")
+                        (lit "Interest repayment for loan part (.+)"))
+                      (.when (.rlike (col "Description") "Loan Part ID")
+                             (lit "Loan Part ID"))
                       (.when (.rlike (col "Description") "EPDQ")
-                        (lit "EPDQ"))))
+                             (lit "EPDQ"))
+                      (.when (.rlike (col "Description") "Loan offer on")
+                             (lit "Loan offer on"))
+                      (.when (.rlike (col "Description") "FC Len Withdrawal")
+                             (lit "FC Len Withdrawal"))))
+      (group-by (col "category"))
+      .count
+      (.show 50 false))
 
-      (show 50 false))
 
-  (let [
-
-        dfcat (->> fc/regexes
-                   (map (fn [regex] (.. df
-                                        (withColumn "foobar"
-                                          (when (.rlike (col "Description") regex)
-                                            (lit regex))))) )
-                   (reduce (fn [acc df] (.union acc df))))]
-    (.show dfcat 50 false)
-    ;(.count dfcat)
-    ;
-    )
 
   (let [
 
@@ -142,14 +214,44 @@
     ;(.show dfcat 50 false)
     )
 
+  (let [[regex1 & rregexes] fc/regexes
+        df1 (.withColumn df "category"
+                         (reduce (fn [acc t] (.. acc
+                                                 (when (.rlike (col "Description") t)
+                                                   (lit t))))
+                                 (functions/when
+                                   (.rlike (col "Description") regex1)
+                                   (lit regex1))
+                                 rregexes))]
+    (.show df1 50 false))
+
+  (let [[regex1 & rregexes] fc/regexes
+        df1 (.withColumn df "category" (reduce (fn [acc t] (.. acc
+                                    (when (.rlike (col "Description") t)
+                                      (lit t))))
+                    (functions/when
+                      (.rlike (col "Description") regex1)
+                      (lit regex1))
+                    rregexes))]
+    (-> (group-by df1 (col "category"))
+        .count
+      (.show 50 false)))
+
+  ;-------- demo
+
+  (.show df 50 false)
+  (.count df)
 
   (def df1 (report-core/clean-data :funding-circle df))
 
   (.show df1 50 false)
 
-  (def df2 (report-core/generate-report1 df1 "2018-04-01" "2018-12-01"))
-  (.. (report-core/generate-report1 df1 "2017-01-01" "2018-12-01")
-      (show 50 false))
+
+  (.. (report-core/generate-report1 df1 "2017-05-01" "2018-05-01")
+      (show 5000 false))
+
+  (.. (report-core/generate-report2 df1 "2017-05-01" "2018-05-01")
+      (show 5000 false))
 
   (let [[correct? missing]  (report-core/validate-cat :funding-circle df)]
     (.show missing)
@@ -314,6 +416,17 @@
       ;;(. month (. month org.apache.spark.sql.functions$/MODULE$ (new Column "date")))
 
       )
+
+  (-> df
+      (.withColumn "category"
+                   (functions/when
+                     (.rlike (col "Description") "Loan Part ID")
+                     (lit "Loan Part ID")))
+      (group-by (col "category"))
+      .count
+      (.show 50 false))
+
+
   )                                                         ;
 
 
