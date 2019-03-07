@@ -1,0 +1,1031 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/league.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<style>
+		.reveal section img { background:none; border:none; box-shadow:none; }
+		</style>
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+					<h3>Accounting Report of Peer2Peer Transactions</h3>
+          <img   border="none" background-color="white" src="img/apache-spark-logo.png" alt="Broker Compare"><h3>
+          Parsing Transactions with Spark Dataframes
+					</h3>
+					</p>
+					Author:
+					Mathieu Gauthron
+					</p>
+
+          <aside class="notes">
+            Thanks for joining us this evening. My name is Mathieu Gauthron, I'm an independent IT consultant working in financial services industry. I specialise in Distributed computing/big data. I also happen to also be a customer of various P2P lending companies like Funding Circle who are kindly hosting us tonight (Thank you Funding Circle...). ;) 
+            
+In the next 20 mins we are going see that Peer2Peer lending transactions can be used to generate a report using Spark Dataframes. To understand the user case, we are going to place ourselves in the skin of a Peer2Peer lender like a company Director who faces the challenge of trying to understand were their money is and how much it returns because frankly we will see the current platform reporting interfaces out there are quite basic and lack some of the basic information that would be required by a company's accountant to track the account.
+
+          	(time 0 mins; total 0 mins)
+          </aside>
+        </section>
+	<section>
+		<h3>Disclaimer</h3>
+		<img height="100" width="100" src="img/Disclaimer-Symbol-PNG-Image.png" alt="Disclaimer image">
+                <p style="text-align:justify"><small>The information provided by Mathieu Gauthron ("we", "us, or "our") during the "Accounting Report of Peer2Peer Transactions" presentation ("slides" or "presentation") is for general information purpose only. We are not affiliated to Funding Circle or any other Peer2Peer provider. All information on the Slides is provided in good faith, however we make no representation or warranty of any kind, express or implied, regarding the accuracy, adequacy, validity, reliability, availability of completeness of any information on the Slides.
+Under no circumstance shall we have any liability to you for any loss or damage of any kind incurred as a result of the reading of the Slides or the viewing of the presentation. Your comsumption of the Slides and the viewing of the Presentation and your reliance on any information  on the Slides and the viewing of the Presentation is solely at your own risk.</small></p>
+
+		<aside class="notes">
+Usual disclaimer, I'm not working for Funding Circle and am not being paid for this talk. When I talk about Peer2Peer lending, I'm only sharing my personal experience... blabla. Your capital is at risk... blabla... Use a financial adviser before making any investment decision. Thank you.
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+	<section>
+		<h3>Agenda</h3>
+		<!-- <img  src="img/broker_pricing.png" alt="broker pricing"> -->
+			<ol>
+				<li>Background on Peer2Peer lending</li>
+				<li>Common Peer2peer Platform reporting shortfalls</li>
+				<li>What is Spark?</li>
+				<li>How to use Dataframes to explore, parse & report on tabular sourced data?</li>
+				<li>Accounting report demo</li>
+			</ol>
+		<aside class="notes">
+
+Here is the agenda for the presentation
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+
+	<section>
+		<h3>Why Peer2Peer lending?</h3>
+		<img height="30%" width="30%" src="img/Years-vs-investment-products-01-1.png" alt="peer-to-peer-lending">
+			<ol>
+				<li class="fragment">Stock & Share is very volatile</li>
+                                <li class="fragment">Saving Account returns less than inflation</li>
+				<li class="fragment">P2P rates are relatively high</li>
+				<li class="fragment">P2P money is accessible*</li>
+			</ol>
+<small>*P2P capital is at risk</small>
+		<aside class="notes">
+			Who knows anything about p2p lending?
+			Just a quick word on why customers would want to use it. 
+			Entities that are cash flow rich have limited options to protect their reserves against inflation in a low interest rate environment like today. Investing in stocks & shares is very volatile (*enter*) which means the capital reserves might have shrunk when the cash is needed. Keeping the money in a saving account (*enter*) with current market rates means losing money slowly over time because of inflation. Peer2Peer lending offers above inflation growth rates (*enter*) whilst protecting the customer from day-to-day capital mark-to-market volatility (however the Capital is at Risk!).
+In other words, Peer2Peer lending platforms like Funding Circle are increasing in popularity and offer an attractive way to boost the risk/return premium profile of a company reserves whilst keeping its capital available at short notice(*enter*). (*pause*)
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+
+	<section>
+		<h3>Peer2peer Platform reporting shortfalls</h3>
+		<img  src="img/Funding-circle-average-anualised-1.png" alt="Funding-circle-average-anualised">
+
+		<aside class="notes">
+This is the typical reporting interface available on a p2p platform. balance figures, interest... Great but this just a snapshot.
+Not like bank a/c, no balance for yesterday, last month, last year.  etc...
+			
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+	<section>
+		<h3>Peer2peer Platform reporting shortfalls</h3>
+		<img height="80%" width="80%" src="img/fc-tax-statement.png" alt="fc-tax-statement">
+
+		<aside class="notes">
+p2p platforms also provide tax statement which HMRC will need deduct tax on the income generated.
+But this is limited. No balance etc...
+
+Typically account track accounts across the financial year. They'll want to value the account at the beg, end and possibly quarterly.
+What is left to us? CSV file
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+  <section data-markdown>
+## Peer2Peer transactions extract
+```csv
+Date,Description,Paid In,Paid Out
+2017-01-17,EPDQ ID: 3359409842 - TRANSFERIN ORDERID: f22ad5d9-20f7-4294-9577-5f12153b0e29,10005.98,
+2017-01-17,Loan offer on Property development in North Devon 18 - 31049,,100.00
+2017-01-17,Loan offer on Expansion And Growth Loan - 31111,,100.00
+2017-01-17,Loan offer on Property Development Fulham London 4 - 31112,,100.00
+2017-01-17,FC Len Withdrawal,,5.98
+2017-01-17,"Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00",,0.01
+2017-01-17,"Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00",,1.99
+2017-01-17,Loan offer on Expansion And Growth Loan - 31162,,20.00
+2017-01-18,"Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05",,0.28
+2017-01-18,"Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05",,20.00
+2017-01-18,"Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05",,0.10
+2017-01-18,"Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05",,20.00
+2017-01-18,"Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10",,1.31
+2017-01-18,"Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10",,40.00
+2017-01-18,Loan offer on Property development in Bristol 3 - 31171,,80.00
+2017-01-18,"Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14",,0.28
+2017-01-18,"Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14",,56.73
+2017-01-18,"Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14",,0.23
+2017-01-18,"Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14",,55.06
+2017-01-18,"Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14",,0.16
+2017-01-18,"Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14",,55.90
+2017-01-18,"Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14",,0.19
+2017-01-18,"Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14",,54.21
+2017-01-18,"Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14",,0.27
+2017-01-18,"Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14",,56.73
+2017-01-18,"Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14",,0.21
+2017-01-18,"Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14",,57.56
+2017-01-18,"Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14",,0.11
+2017-01-18,"Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14",,54.21
+2017-01-18,"Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14",,0.16
+2017-01-18,"Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14",,55.06
+2017-01-18,"Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14",,0.32
+2017-01-18,"Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14",,56.73
+2017-01-18,"Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14",,0.27
+2017-01-18,"Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14",,55.53
+2017-01-18,"Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14",,0.20
+2017-01-18,"Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14",,55.53
+2017-01-18,"Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14",,0.23
+2017-01-18,"Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14",,55.06
+2017-01-18,"Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14",,0.27
+2017-01-18,"Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14",,56.73
+2017-01-18,EPDQ ID: 3361413518 - TRANSFERIN ORDERID: a260448e-6482-4727-bb6b-bf82c7230cae,20000.00,
+2017-01-18,Loan offer on Working Capital Loan - 31225,,280.00
+2017-01-18,Loan offer on Expansion And Growth Loan - 31227,,280.00
+2017-01-18,Loan offer on Expansion And Growth Loan - 31228,,280.00
+2017-01-18,Loan offer on Working Capital Loan - 31229,,280.00
+2017-01-18,Loan offer on Expansion And Growth Loan - 31233,,280.00
+2017-01-18,Loan offer on Property Development Wokingham Berkshire 3 - 31235,,280.00
+2017-01-18,Loan offer on Expansion And Growth Loan - 31243,,280.00
+2017-01-18,"Loan Part ID 17175996 : Principal 20.00, Interest 0.21, Delta 0.00, Fee 0.05",,0.21
+2017-01-18,"Loan Part ID 17175996 : Principal 20.00, Interest 0.21, Delta 0.00, Fee 0.05",,20.00
+2017-01-18,"Loan Part ID 17130228 : Principal 20.00, Interest 0.22, Delta 0.00, Fee 0.05",,0.22
+2017-01-18,"Loan Part ID 17130228 : Principal 20.00, Interest 0.22, Delta 0.00, Fee 0.05",,20.00
+2017-01-18,"Loan Part ID 13183050 : Principal 90.36, Interest 0.72, Delta 0.00, Fee 0.23",,0.72
+2017-01-18,"Loan Part ID 13183050 : Principal 90.36, Interest 0.72, Delta 0.00, Fee 0.23",,90.36
+2017-01-19,"Loan Part ID 17158756 : Principal 80.00, Interest 1.15, Delta 0.00, Fee 0.20",,1.15
+2017-01-19,"Loan Part ID 17158756 : Principal 80.00, Interest 1.15, Delta 0.00, Fee 0.20",,80.00
+2017-01-19,"Loan Part ID 17156853 : Principal 80.00, Interest 0.83, Delta 0.00, Fee 0.20",,0.83
+2017-01-19,"Loan Part ID 17156853 : Principal 80.00, Interest 0.83, Delta 0.00, Fee 0.20",,80.00
+2017-01-19,"Loan Part ID 17155911 : Principal 100.00, Interest 1.36, Delta 0.00, Fee 0.25",,1.36
+2017-01-19,"Loan Part ID 17155911 : Principal 100.00, Interest 1.36, Delta 0.00, Fee 0.25",,100.00
+2017-01-19,"Loan Part ID 17161441 : Principal 100.00, Interest 1.28, Delta 0.00, Fee 0.25",,1.28
+2017-01-19,"Loan Part ID 17161441 : Principal 100.00, Interest 1.28, Delta 0.00, Fee 0.25",,100.00
+2017-01-19,Principal repayment for loan part 17130228,0.23,
+2017-01-19,Interest repayment for loan part 17130228,0.22,
+2017-01-19,Servicing fee for Loan ID N/A; Loan Part ID 17130228; Investor ID 000000LMATLUXL231023,,0.01
+2017-01-19,Loan offer on Expansion And Growth Loan - 31253,,280.00
+2017-01-19,"Loan Part ID 15864647 : Principal 19.54, Interest 0.21, Delta 0.00, Fee 0.05",,0.21
+2017-01-19,"Loan Part ID 15864647 : Principal 19.54, Interest 0.21, Delta 0.00, Fee 0.05",,19.54
+2017-01-19,"Loan Part ID 16006253 : Principal 19.54, Interest 0.16, Delta 0.00, Fee 0.05",,0.16
+2017-01-19,"Loan Part ID 16006253 : Principal 19.54, Interest 0.16, Delta 0.00, Fee 0.05",,19.54
+2017-01-19,"Loan Part ID 6121752 : Principal 76.32, Interest 0.39, Delta 0.00, Fee 0.19",,0.39
+2017-01-19,"Loan Part ID 6121752 : Principal 76.32, Interest 0.39, Delta 0.00, Fee 0.19",,76.32
+2017-01-19,"Loan Part ID 8344734 : Principal 214.53, Interest 1.04, Delta 0.00, Fee 0.54",,1.04
+2017-01-19,"Loan Part ID 8344734 : Principal 214.53, Interest 1.04, Delta 0.00, Fee 0.54",,214.53
+2017-01-19,"Loan Part ID 16631076 : Principal 19.80, Interest 0.24, Delta 0.00, Fee 0.05",,0.24
+2017-01-19,"Loan Part ID 16631076 : Principal 19.80, Interest 0.24, Delta 0.00, Fee 0.05",,19.80
+2017-01-19,"Loan Part ID 17174149 : Principal 20.00, Interest 0.22, Delta 0.00, Fee 0.05",,0.22
+2017-01-19,"Loan Part ID 17174149 : Principal 20.00, Interest 0.22, Delta 0.00, Fee 0.05",,20.00
+2017-01-19,"Loan Part ID 8349166 : Principal 214.53, Interest 1.00, Delta 0.00, Fee 0.54",,1.00
+2017-01-19,"Loan Part ID 8349166 : Principal 214.53, Interest 1.00, Delta 0.00, Fee 0.54",,214.53
+2017-01-19,Early principal repayment for loan part 3817572,1.99,
+2017-01-19,Early interest repayment for loan part 3817572,0.02,
+2017-01-19,Loan offer on Property Development Wigan Road Standish 4 - 31262,,280.00
+2017-01-19,Loan offer on Expansion And Growth Loan - 31284,,280.00
+2017-01-19,Loan offer on Property development in Leicestershire 1 - 31289,,280.00
+2017-01-19,Loan offer on Expansion And Growth Loan - 31293,,280.00
+2017-01-19,Loan offer on Expansion And Growth Loan - 31300,,280.00
+2017-01-19,Loan offer on Expansion And Growth Loan - 31314,,280.00
+2017-01-19,Loan offer on Working Capital Loan - 31316,,280.00
+2017-01-19,Loan offer on Expansion And Growth Loan - 31322,,280.00
+2017-01-19,"Loan Part ID 17175137 : Principal 40.00, Interest 0.34, Delta 0.00, Fee 0.10",,0.34
+2017-01-19,"Loan Part ID 17175137 : Principal 40.00, Interest 0.34, Delta 0.00, Fee 0.10",,40.00
+2017-01-19,"Loan Part ID 12218357 : Principal 68.86, Interest 0.28, Delta 0.00, Fee 0.17",,0.28
+2017-01-19,"Loan Part ID 12218357 : Principal 68.86, Interest 0.28, Delta 0.00, Fee 0.17",,68.86
+2017-01-19,"Loan Part ID 12154732 : Principal 69.16, Interest 0.46, Delta 0.00, Fee 0.17",,0.46
+2017-01-19,"Loan Part ID 12154732 : Principal 69.16, Interest 0.46, Delta 0.00, Fee 0.17",,69.16
+2017-01-19,"Loan Part ID 12144087 : Principal 68.86, Interest 0.40, Delta 0.00, Fee 0.17",,0.40
+2017-01-19,"Loan Part ID 12144087 : Principal 68.86, Interest 0.40, Delta 0.00, Fee 0.17",,68.86
+2017-01-19,"Loan Part ID 14155385 : Principal 80.00, Interest 0.24, Delta 0.00, Fee 0.20",,0.24
+2017-01-19,"Loan Part ID 14155385 : Principal 80.00, Interest 0.24, Delta 0.00, Fee 0.20",,80.00
+2017-01-19,"Loan Part ID 14070966 : Principal 80.00, Interest 0.34, Delta 0.00, Fee 0.20",,0.34
+2017-01-19,"Loan Part ID 14070966 : Principal 80.00, Interest 0.34, Delta 0.00, Fee 0.20",,80.00
+2017-01-19,"Loan Part ID 13999029 : Principal 73.77, Interest 0.55, Delta 0.00, Fee 0.18",,0.55
+2017-01-19,"Loan Part ID 13999029 : Principal 73.77, Interest 0.55, Delta 0.00, Fee 0.18",,73.77
+2017-01-19,"Loan Part ID 11990311 : Principal 80.00, Interest 0.05, Delta 0.00, Fee 0.20",,0.05
+2017-01-19,"Loan Part ID 11990311 : Principal 80.00, Interest 0.05, Delta 0.00, Fee 0.20",,80.00
+2017-01-19,"Loan Part ID 14443703 : Principal 80.00, Interest 0.38, Delta 0.00, Fee 0.20",,0.38
+2017-01-19,"Loan Part ID 14443703 : Principal 80.00, Interest 0.38, Delta 0.00, Fee 0.20",,80.00
+2017-01-19,"Loan Part ID 14434041 : Principal 74.69, Interest 0.44, Delta 0.00, Fee 0.19",,0.44
+```
+note:
+CSV file can be extracted. They typically come with no documentation. The transactions of this large table contains a description and and an amount which we need to categories to generate a report. Because of the large number of lines (circa 20k/year) we need a better tool than excel. Spark Dataframes will enable use to drill through this data and work out a way to categories the content before we can run a series of reports.
+		(time 0 : total time 0 mins)
+  </section>
+
+
+	<section>
+		<section>
+		<h3>What is Spark?</h3>
+		<img height="100%" width="100%" src="img/what-is-spark2.png" alt="fc-tax-statement">
+
+		<aside class="notes">
+			
+			(time 0 mins; total 0 mins)
+		</aside>
+		</section>
+			<section>
+				<h3>Spark RDDs are based on Map Reduce</h3>
+				<img height="80%" width="80%" src="img/map-reduce.png" alt="fc-tax-statement">
+
+				<aside class="notes">
+					
+					(time 0 mins; total 0 mins)
+				</aside>
+			</section>
+		  <section data-markdown>
+		## RDD Word Count example
+		```clojure
+		(-> (f/text-file sc "data.txt")
+		    (f/flat-map (f/iterator-fn [l] (s/split l #" ")))
+		    (f/map-to-pair (f/fn [w] (ft/tuple w 1)))
+		    (f/reduce-by-key (f/fn [x y] (+ x y)))
+		    f/sort-by-key
+		    f/collect
+		    clojure.pprint/pprint)
+		```
+		note:
+				(time 0 : total time 0 mins)
+		  </section>
+
+	</section>
+
+	<section>
+		<h3>What are Dataframe?</h3>
+		<img height="50%" width="50%" src="img/what-is-dataframe.png" alt="fc-tax-statement">
+
+		<aside class="notes">
+			lazy and imutable table that you can chain to build an execution graph at scale on a hadoop cluster.
+Dataframes give you a rich SQL semantic which is very useful to parse a large CSV file.
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+	<section>
+		<h3>How to use Dataframe in Clojure</h3>
+			<ol>
+				<li>Java/Scala interop</li>
+				<li>Flambo : https://github.com/sorenmacbeth/flambo</li>
+                                <li>Sparkling : https://github.com/gorillalabs/sparkling</li>
+				<li>Powerkeg : https://github.com/HCADatalab/powderkeg</li>
+			</ol>
+		<aside class="notes">
+			
+			(time 0 mins; total 0 mins)
+		</aside>
+	</section>
+  <section>
+    <section data-markdown>
+## Simple Dataframe creation
+```clojure
+  (def df (create-dataframe spark
+	 [["Description", DataTypes/StringType, true]
+	  ["amount", DataTypes/LongType, true]]
+	  '( ( "interest payment 1"  2)
+	     ( "transfer"           40)
+	     ( "interest payment 2"  4)
+	     ( "fee"                 1)
+	     ( "interest payment 3"  3))))
+```
+```clojure
+  (.show df 50 false)
+=> nil
++------------------+------+
+|Description       |amount|
++------------------+------+
+|interest payment 1|2     |
+|transfer          |40    |
+|interest payment 2|4     |
+|fee               |1     |
+|interest payment 3|3     |
++------------------+------+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+
+  <section data-markdown>
+## Dataframe columns have a type
+```clojure
+ (.printSchema df)
+```
+```clojure
+root
+ |-- Description: string (nullable = true)
+ |-- amount: long (nullable = true)
+```
+note:
+		(time 0 : total time 0 mins)
+    </section>
+  </section>
+  <section data-markdown>
+## new Column example
+```clojure
+(.withColumn df "pence" (.multiply (col "amount") (lit 100)))
+```
+```clojure
++------------------+------+-----+
+|Description       |amount|pence|
++------------------+------+-----+
+|interest payment 1|2     |200  |
+|transfer          |40    |4000 |
+|interest payment 2|4     |400  |
+|fee               |1     |100  |
+|interest payment 3|3     |300  |
++------------------+------+-----+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+  <section data-markdown>
+## new Column with regex
+```clojure
+(.withColumn df "category"
+   (functions/when
+     (.rlike (col "Description") "interest payment")
+     (lit "interest payment")))
+```
+```clojure
++------------------+------+----------------+
+|Description       |amount|category        |
++------------------+------+----------------+
+|interest payment 1|2     |interest payment|
+|transfer          |40    |null            |
+|interest payment 2|4     |interest payment|
+|fee               |1     |null            |
+|interest payment 3|3     |interest payment|
++------------------+------+----------------+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+  <section data-markdown>
+## category with multiple regexes
+```clojure
+(.withColumn df "category"
+   (-> (functions/when
+         (.rlike (col "Description") "interest payment")
+         (lit "interest payment"))
+       (.when (.rlike (col "Description") "transfer")
+              (lit "transfer"))
+       (.when (.rlike (col "Description") "fee")
+              (lit "fee"))))
+```
+```clojure
++------------------+------+----------------+
+|Description       |amount|category        |
++------------------+------+----------------+
+|interest payment 1|2     |interest payment|
+|transfer          |40    |transfer        |
+|interest payment 2|4     |interest payment|
+|fee               |1     |fee             |
+|interest payment 3|3     |interest payment|
++------------------+------+----------------+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+  <section data-markdown>
+## mini report with aggregation
+```clojure
+(.withColumn df "category"
+   (-> (functions/when
+         (.rlike (col "Description") "interest payment")
+         (lit "interest payment"))
+       (.when (.rlike (col "Description") "transfer")
+              (lit "transfer"))
+       (.when (.rlike (col "Description") "fee")
+              (lit "fee"))))
+(group-by (col "category"))
+(agg (sum "amount") (functions/count "*"))
+```
+```clojure
++----------------+-----------+--------+
+|category        |sum(amount)|count(1)|
++----------------+-----------+--------+
+|interest payment|9          |3       |
+|fee             |1          |1       |
+|transfer        |40         |1       |
++----------------+-----------+--------+
+```
+note:
+what the mini report would look like
+		(time 0 : total time 0 mins)
+  </section>
+
+
+
+  <section data-markdown>
+## Load a CSV file
+```clojure
+(def df (.. spark
+      read
+      (schema (sql/create-custom-schema
+                [["Date", DataTypes/DateType, true]
+                 ["Description", DataTypes/StringType, true]
+                 ["Paid In", decimalType, true]
+                 ["Paid Out", decimalType, true]
+                 ]))
+      (options opts)
+      (csv ("transactions.cvs")))
+```
+```clojure
+(.count df)
+=> 19603
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+  <section data-markdown>
+## show dataframe of CSV file
+```clojure
+(.show df 50 false)
+```
+```clojure
++----------+------------------------------------------------------------------------------+--------+--------+
+|Date      |Description                                                                   |Paid In |Paid Out|
++----------+------------------------------------------------------------------------------+--------+--------+
+|2017-01-17|EPDQ ID: 3888888882 - TRANSFERIN ORDERID: f22ad5d9-20f7-9999-9577-5f12153b0e29|1005.98 |null    |
+|2017-01-17|Loan offer on Property development in North Devon 18 - 31043                  |null    |100.00  |
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31111                               |null    |100.00  |
+|2017-01-17|Loan offer on Property Development Fulham London 4 - 31312                    |null    |100.00  |
+|2017-01-17|FC Len Withdrawal                                                             |null    |5.98    |
+|2017-01-17|Loan Part ID 3888882 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |0.01    |
+|2017-01-17|Loan Part ID 3818882 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |1.99    |
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31162                               |null    |20.00   |
+|2017-01-18|Loan Part ID 15988863 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |0.28    |
+|2017-01-18|Loan Part ID 15988863 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |20.00   |
+|2017-01-18|Loan Part ID 17588887 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |0.10    |
+|2017-01-18|Loan Part ID 17588887 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |20.00   |
+|2017-01-18|Loan Part ID 17888141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |1.31    |
+|2017-01-18|Loan Part ID 17888141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |40.00   |
+|2017-01-18|Loan offer on Property development in Bristol 3 - 31171                       |null    |80.00   |
+|2017-01-18|Loan Part ID 14888049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |0.28    |
+|2017-01-18|Loan Part ID 14888049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |56.73   |
+|2017-01-18|Loan Part ID 14088968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |
+|2017-01-18|Loan Part ID 14088968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |
+|2017-01-18|Loan Part ID 14588335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |
+|2017-01-18|Loan Part ID 14588335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.90   |
+|2017-01-18|Loan Part ID 13788312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |0.19    |
+|2017-01-18|Loan Part ID 13788312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |54.21   |
+|2017-01-18|Loan Part ID 14888788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |
+|2017-01-18|Loan Part ID 14888788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |
+|2017-01-18|Loan Part ID 15588324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |0.21    |
+|2017-01-18|Loan Part ID 15588324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |57.56   |
+|2017-01-18|Loan Part ID 13888340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |0.11    |
+|2017-01-18|Loan Part ID 13888340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |54.21   |
+|2017-01-18|Loan Part ID 14188524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |
+|2017-01-18|Loan Part ID 14188524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.06   |
+|2017-01-18|Loan Part ID 14888140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |0.32    |
+|2017-01-18|Loan Part ID 14888140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |56.73   |
+|2017-01-18|Loan Part ID 15388393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |
+|2017-01-18|Loan Part ID 15388393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |55.53   |
+|2017-01-18|Loan Part ID 15488031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |0.20    |
+|2017-01-18|Loan Part ID 15488031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |55.53   |
+|2017-01-18|Loan Part ID 14077317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |
+|2017-01-18|Loan Part ID 14077317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |
+|2017-01-18|Loan Part ID 14877325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |
+|2017-01-18|Loan Part ID 14877325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |
+|2017-01-18|EPDQ ID: 3361777518 - TRANSFERIN ORDERID: a260448e-6482-4727-bb6b-bf82c7230cae|2000.00 |null    |
+|2017-01-18|Loan offer on Working Capital Loan - 31775                                    |null    |280.00  |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31777                               |null    |280.00  |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31778                               |null    |280.00  |
+|2017-01-18|Loan offer on Working Capital Loan - 31779                                    |null    |280.00  |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31773                               |null    |280.00  |
+|2017-01-18|Loan offer on Property Development Wokingham Berkshire 3 - 31775              |null    |280.00  |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31773                               |null    |280.00  |
+|2017-01-18|Loan Part ID 17178896 : Principal 20.00, Interest 0.21, Delta 0.00, Fee 0.05  |null    |0.21    |
++----------+------------------------------------------------------------------------------+--------+--------+
+only showing top 50 rows
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+
+  <section data-markdown>
+## Let's group-by Description
+```clojure
+  (-> df
+      (group-by (col "Description"))
+      .count
+      (.show 50 false))
+```
+```clojure
++--------------------------------------------------------------------------------------+-----+
+|Description                                                                           |count|
++--------------------------------------------------------------------------------------+-----+
+|Loan Part ID 17559327 : Principal 100.00, Interest 0.03, Delta 0.00, Fee 0.25         |2    |
+|Interest repayment for loan part 16538835                                             |22   |
+|Servicing fee for Loan ID N/A; Loan Part ID 17636285; Investor ID 000000LMATLUXL231023|14   |
+|Principal repayment for loan part 17778180                                            |21   |
+|Loan Part ID 5366404 : Principal 9.35, Interest 0.08, Delta 0.00, Fee 0.00            |2    |
+|Principal repayment for loan part 23655845                                            |11   |
+|Interest repayment for loan part 30036477                                             |4    |
+|Principal repayment for loan part 24648391                                            |3    |
+|Interest repayment for loan part 20590715                                             |2    |
+|Principal repayment for loan part 32668153                                            |1    |
+|Loan Part ID 16631076 : Principal 19.80, Interest 0.24, Delta 0.00, Fee 0.05          |2    |
+|Servicing fee for Loan ID N/A; Loan Part ID 16631076; Investor ID 000000LMATLUXL231023|22   |
+|Servicing fee for Loan ID N/A; Loan Part ID 14890325; Investor ID 000000LMATLUXL231023|22   |
+|Servicing fee for Loan ID N/A; Loan Part ID 16364255; Investor ID 000000LMATLUXL231023|19   |
+|Principal repayment for loan part 17725523                                            |21   |
+|Interest repayment for loan part 19508316                                             |18   |
+|Servicing fee for Loan ID N/A; Loan Part ID 14269252; Investor ID 000000LMATLUXL231023|12   |
+|Servicing fee for Loan ID N/A; Loan Part ID 27105844; Investor ID 000000LMATLUXL231023|7    |
+|Loan Part ID 23197406 : Principal 80.31, Interest 0.30, Delta 0.00, Fee 0.00          |2    |
+|Loan Part ID 20866507 : Principal 51.79, Interest 0.29, Delta 0.00, Fee 0.00          |2    |
+|Principal repayment for loan part 23369639                                            |4    |
+|Servicing fee for loan part 21116307                                                  |1    |
+|Early interest repayment for loan part 21880283                                       |1    |
+|Principal recovery repayment for loan part 17155911                                   |1    |
+|Interest repayment for loan part 21968129                                             |1    |
+|Principal repayment for loan part 32302971                                            |1    |
+|Loan Part ID 17174149 : Principal 20.00, Interest 0.22, Delta 0.00, Fee 0.05          |2    |
+|Loan Part ID 14614500 : Principal 93.16, Interest 0.21, Delta 0.00, Fee 0.23          |2    |
+|Loan Part ID 14548225 : Principal 146.02, Interest 0.63, Delta 0.00, Fee 0.37         |2    |
+|Interest repayment for loan part 15290241                                             |22   |
+|Servicing fee for Loan ID N/A; Loan Part ID 17826610; Investor ID 000000LMATLUXL231023|21   |
+|Principal repayment for loan part 19380780                                            |8    |
+|Loan Part ID 15200862 : Principal 192.54, Interest 0.53, Delta 0.00, Fee 0.00         |2    |
+|Principal repayment for loan part 23168671                                            |7    |
+|Loan Part ID 12402797 : Principal 63.29, Interest 0.07, Delta 0.00, Fee 0.00          |2    |
+|Early principal repayment for loan part 17502222                                      |1    |
+|Loan Part ID 28672979 : Principal 39.82, Interest 0.11, Delta 0.00, Fee 0.00          |2    |
+|Principal repayment for loan part 23266321                                            |3    |
+|Principal repayment for loan part 16663656                                            |22   |
+|Principal repayment for loan part 22060372                                            |13   |
+|Principal repayment for loan part 23637617                                            |11   |
+|Servicing fee for Loan ID N/A; Loan Part ID 24996938; Investor ID 000000LMATLUXL231023|9    |
+|Early principal repayment for loan part 17663034                                      |1    |
+|Interest repayment for loan part 25444838                                             |5    |
+|Principal repayment for loan part 28898043                                            |5    |
+|Interest repayment for loan part 29530834                                             |4    |
+|Early interest repayment for loan part 23294010                                       |1    |
+|Interest repayment for loan part 12334693                                             |3    |
+|Loan Part ID 21402413 : Principal 83.91, Interest 1.09, Delta 0.00, Fee 0.00          |2    |
+|Loan Part ID 16533028 : Principal 98.73, Interest 0.84, Delta 0.00, Fee 0.25          |2    |
++--------------------------------------------------------------------------------------+-----+
+```
+note:
+Let's group-by Description
+Lots of categories. How many are there?
+		(time 0 : total time 0 mins)
+  </section>
+  <section data-markdown>
+## Too many categories
+```clojure
+  (-> df
+      (group-by (col "Description"))
+      .count
+      .count
+      )
+```
+```clojure
+=> 2604
+```
+note:
+Too many categories because of the ids in the description
+We need to extract patterns using regular expressions
+		(time 0 : total time 0 mins)
+  </section>
+
+  <section data-markdown>
+## Let's use regex
+```clojure
+  (.. (.filter df (.rlike (col "Description") "Loan Part ID"))
+      count)
+```
+```clojure
+=> 6918
+```
+note:
+Let's use this regex => we can find a class of 6918 items
+This is a large chunk of the data. We have probably found a new category
+		(time 0 : total time 0 mins)
+  </section>
+<!--
+  <section data-markdown>
+## Let's group-by with regex
+```clojure
+  (-> df
+      (group-by (.rlike (col "Description") "Loan Part ID"))
+      .count
+      (.show 50 false))
+```
+```clojure
++------------------------------+-----+
+|Description RLIKE Loan Part ID|count|
++------------------------------+-----+
+|true                          |6918 |
+|false                         |12685|
++------------------------------+-----+
+```
+note:
+6918 items out of 19603
+		(time 0 : total time 0 mins)
+  </section>
+-->
+  <section>
+  <section data-markdown>
+## withColumn one category
+```clojure
+  (-> df
+      (.withColumn "category"
+           (functions/when
+             (.rlike (col "Description") "Loan Part ID")
+             (lit "Loan Part ID")))
+      (.show 50 false))
+```
+```clojure
++----------+------------------------------------------------------------------------------+--------+--------+------------+
+|Date      |Description                                                                   |Paid In |Paid Out|category    |
++----------+------------------------------------------------------------------------------+--------+--------+------------+
+|2017-01-17|EPDQ ID: 3359409842 - TRANSFERIN ORDERID: f22ad5d9-20f7-4294-9577-5f12153b0e29|10005.98|null    |null        |
+|2017-01-17|Loan offer on Property development in North Devon 18 - 31049                  |null    |100.00  |null        |
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31111                               |null    |100.00  |null        |
+|2017-01-17|Loan offer on Property Development Fulham London 4 - 31112                    |null    |100.00  |null        |
+|2017-01-17|FC Len Withdrawal                                                             |null    |5.98    |null        |
+|2017-01-17|Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |0.01    |Loan Part ID|
+|2017-01-17|Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |1.99    |Loan Part ID|
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31162                               |null    |20.00   |null        |
+|2017-01-18|Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |0.28    |Loan Part ID|
+|2017-01-18|Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |20.00   |Loan Part ID|
+|2017-01-18|Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |0.10    |Loan Part ID|
+|2017-01-18|Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |20.00   |Loan Part ID|
+|2017-01-18|Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |1.31    |Loan Part ID|
+|2017-01-18|Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |40.00   |Loan Part ID|
+|2017-01-18|Loan offer on Property development in Bristol 3 - 31171                       |null    |80.00   |null        |
+|2017-01-18|Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |0.28    |Loan Part ID|
+|2017-01-18|Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID|
+|2017-01-18|Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |Loan Part ID|
+|2017-01-18|Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part ID|
+|2017-01-18|Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |Loan Part ID|
+|2017-01-18|Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.90   |Loan Part ID|
+|2017-01-18|Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |0.19    |Loan Part ID|
+|2017-01-18|Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |54.21   |Loan Part ID|
+|2017-01-18|Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part ID|
+|2017-01-18|Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID|
+|2017-01-18|Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |0.21    |Loan Part ID|
+|2017-01-18|Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |57.56   |Loan Part ID|
+|2017-01-18|Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |0.11    |Loan Part ID|
+|2017-01-18|Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |54.21   |Loan Part ID|
+|2017-01-18|Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |Loan Part ID|
+|2017-01-18|Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part ID|
+|2017-01-18|Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |0.32    |Loan Part ID|
+|2017-01-18|Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID|
+|2017-01-18|Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part ID|
+19/03/05 01:10:45 INFO Executor: Finished task 0.0 in stage 473.0 (TID 12425). 2575 bytes result sent to driver
+|2017-01-18|Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |55.53   |Loan Part ID|
+19/03/05 01:10:45 INFO TaskSetManager: Finished task 0.0 in stage 473.0 (TID 12425) in 4 ms on localhost (executor driver) (1/1)
+|2017-01-18|Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |0.20    |Loan Part ID|
+19/03/05 01:10:45 INFO TaskSchedulerImpl: Removed TaskSet 473.0, whose tasks have all completed, from pool 
+|2017-01-18|Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |55.53   |Loan Part ID|
+19/03/05 01:10:45 INFO DAGScheduler: ResultStage 473 (show at NativeMethodAccessorImpl.java:0) finished in 0.005 s
+19/03/05 01:10:45 INFO DAGScheduler: Job 247 finished: show at NativeMethodAccessorImpl.java:0, took 0.008101 s
+|2017-01-18|Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |Loan Part ID|
+|2017-01-18|Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part ID|
+|2017-01-18|Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part ID|
+|2017-01-18|Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID|
+|2017-01-18|EPDQ ID: 3361413518 - TRANSFERIN ORDERID: a260448e-6482-4727-bb6b-bf82c7230cae|20000.00|null    |null        |
+|2017-01-18|Loan offer on Working Capital Loan - 31225                                    |null    |280.00  |null        |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31227                               |null    |280.00  |null        |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31228                               |null    |280.00  |null        |
+|2017-01-18|Loan offer on Working Capital Loan - 31229                                    |null    |280.00  |null        |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31233                               |null    |280.00  |null        |
+|2017-01-18|Loan offer on Property Development Wokingham Berkshire 3 - 31235              |null    |280.00  |null        |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31243                               |null    |280.00  |null        |
+|2017-01-18|Loan Part ID 17175996 : Principal 20.00, Interest 0.21, Delta 0.00, Fee 0.05  |null    |0.21    |Loan Part ID|
++----------+------------------------------------------------------------------------------+--------+--------+------------+
+```
+note:
+Let's push the concept further and create a new column with the category we have found exactly like in the small example b4.
+6918 items out of 19603
+Let's track the nulls to find the missing patters.
+		(time 0 : total time 0 mins)
+  </section>
+
+
+
+  <section data-markdown>
+## group-by with new column
+```clojure
+  (-> df
+      (.withColumn "category"
+                  (functions/when
+                    (.rlike (col "Description") "Loan Part ID")
+                    (lit "Loan Part ID")))
+      (group-by (col "category"))
+      .count
+      (.show 50 false)
+      )
+```
+```clojure
++------------+-----+
+|category    |count|
++------------+-----+
+|Loan Part ID|6918 |
+|null        |12685|
++------------+-----+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+  </section>
+
+  <section data-markdown>
+## same but with more categories
+```clojure
+(-> (.withColumn df "category"
+       (-> (functions/when
+             (.rlike (col "Description") "Interest repayment for loan part (.+)")
+             (lit "Interest repayment for loan part (.+)"))
+           (.when (.rlike (col "Description") "Loan Part ID")
+                  (lit "Loan Part ID"))
+           (.when (.rlike (col "Description") "EPDQ")
+                  (lit "EPDQ"))
+           (.when (.rlike (col "Description") "Loan offer on")
+                  (lit "Loan offer on"))
+           (.when (.rlike (col "Description") "FC Len Withdrawal")
+                  (lit "FC Len Withdrawal"))))
+   (group-by (col "category")) .count)
+=>
++-------------------------------------+-----+
+|category                             |count|
++-------------------------------------+-----+
+|Loan Part ID                         |6918 |
+|null                                 |6148 |
+|FC Len Withdrawal                    |1    |
+|Loan offer on                        |277  |
+|Interest repayment for loan part (.+)|6256 |
+|EPDQ                                 |3    |
++-------------------------------------+-----+
+```
+note:
+Let's keep an eye on the null because they are the missing categorisations. Iterative process.
+		(time 0 : total time 0 mins)
+  </section>
+  <section>
+  <section data-markdown>
+## and group-by
+```clojure
+  (let [[regex1 & rregexes] fc/regexes
+        df1 (.withColumn df "category" (reduce (fn [acc t] (.. acc
+                                    (when (.rlike (col "Description") t)
+                                      (lit t))))
+                    (functions/when
+                      (.rlike (col "Description") regex1)
+                      (lit regex1))
+                    rregexes))]
+    (-> (group-by df1 (col "category"))
+        .count
+      (.show 50 false)))
+```
+```clojure
++-----------------------------------------------------------------------+-----+
+|category                                                               |count|
++-----------------------------------------------------------------------+-----+
+|Loan offer on (.+) - (.+)                                              |277  |
+|FC Len Withdrawal                                                      |1    |
+|Servicing fee for loan part (.+)                                       |94   |
+|Principal recovery repayment for loan part (.+)                        |31   |
+|Principal repayment for loan part (.+)                                 |5833 |
+|Interest repayment for loan part (.+)                                  |6256 |
+|Servicing fee for Loan ID N/A; Loan Part ID (.+); Investor ID (.+)     |6226 |
+|Early principal repayment for loan part (.+)                           |95   |
+|Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|692  |
+|EPDQ ID: (.+) - TRANSFERIN ORDERID: (.+)                               |3    |
+|Early interest repayment for loan part (.+)                            |95   |
++-----------------------------------------------------------------------+-----+
+```
+note:
+Once we have all the categories we can write this reduction to generalise the categorisation of transactions.
+Once we have got that we can start pivoting on the data to generate reports.
+		(time 0 : total time 0 mins)
+  </section>
+  <section data-markdown>
+## let's apply all categories
+```clojure
+  (let [[regex1 & rregexes] fc/regexes
+        df1 (.withColumn df "category"
+         (reduce (fn [acc t] (.. acc
+                                 (when (.rlike (col "Description") t)
+                                   (lit t))))
+                 (functions/when
+                   (.rlike (col "Description") regex1)
+                   (lit regex1))
+                 rregexes))]
+    (.show df1 50 false))
+=>
++----------+------------------------------------------------------------------------------+--------+--------+-----------------------------------------------------------------------+
+|Date      |Description                                                                   |Paid In |Paid Out|category                                                               |
++----------+------------------------------------------------------------------------------+--------+--------+-----------------------------------------------------------------------+
+|2017-01-17|EPDQ ID: 3359409842 - TRANSFERIN ORDERID: f22ad5d9-20f7-4294-9577-5f12153b0e29|10005.98|null    |EPDQ ID: (.+) - TRANSFERIN ORDERID: (.+)                               |
+|2017-01-17|Loan offer on Property development in North Devon 18 - 31049                  |null    |100.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31111                               |null    |100.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-17|Loan offer on Property Development Fulham London 4 - 31112                    |null    |100.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-17|FC Len Withdrawal                                                             |null    |5.98    |FC Len Withdrawal                                                      |
+|2017-01-17|Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |0.01    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-17|Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |1.99    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31162                               |null    |20.00   |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |0.28    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |20.00   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |0.10    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |20.00   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |1.31    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |40.00   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan offer on Property development in Bristol 3 - 31171                       |null    |80.00   |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |0.28    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.90   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |0.19    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |54.21   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |0.21    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |57.56   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |0.11    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |54.21   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |0.32    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |55.53   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |0.20    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |55.53   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
+|2017-01-18|EPDQ ID: 3361413518 - TRANSFERIN ORDERID: a260448e-6482-4727-bb6b-bf82c7230cae|20000.00|null    |EPDQ ID: (.+) - TRANSFERIN ORDERID: (.+)                               |
+|2017-01-18|Loan offer on Working Capital Loan - 31225                                    |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31227                               |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31228                               |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan offer on Working Capital Loan - 31229                                    |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31233                               |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan offer on Property Development Wokingham Berkshire 3 - 31235              |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31243                               |null    |280.00  |Loan offer on (.+) - (.+)                                              |
+|2017-01-18|Loan Part ID 17175996 : Principal 20.00, Interest 0.21, Delta 0.00, Fee 0.05  |null    |0.21    |Loan Part ID (.+) : Principal (.+), Interest (.+), Delta (.+), Fee (.+)|
++----------+------------------------------------------------------------------------------+--------+--------+-----------------------------------------------------------------------+
+only showing top 50 rows
+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+
+
+  </section>
+
+  <section data-markdown>
+## Demo
+
+note:
+		(time 0 : total time 0 mins)
+  </section>
+
+  <section data-markdown>
+## Clean the data
+```clojure
+(def df1 (report-core/clean-data :funding-circle df))
+(.show df1 50 false)
+```
+```clojure
++----------+------------------------------------------------------------------------------+--------+--------+-----------+------------------------------------------+------------+--------+-----+----+
+ nil
+|Date      |Description                                                                   |Paid In |Paid Out|FC type    |type                                      |cat         |Amount  |month|year|
++----------+------------------------------------------------------------------------------+--------+--------+-----------+------------------------------------------+------------+--------+-----+----+
+|2017-01-17|EPDQ ID: 3359409842 - TRANSFERIN ORDERID: f22ad5d9-20f7-4294-9577-5f12153b0e29|10005.98|null    |TRANSFER IN|Bank transfer gen type                    |TRANSFER cat|10005.98|1    |2017|
+|2017-01-17|Loan offer on Property development in North Devon 18 - 31049                  |null    |100.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-100.00 |1    |2017|
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31111                               |null    |100.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-100.00 |1    |2017|
+|2017-01-17|Loan offer on Property Development Fulham London 4 - 31112                    |null    |100.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-100.00 |1    |2017|
+|2017-01-17|FC Len Withdrawal                                                             |null    |5.98    |Withdrawal |Next Day Money Withdrawal request gen type|TRANSFER cat|-5.98   |1    |2017|
+|2017-01-17|Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |0.01    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.01   |1    |2017|
+|2017-01-17|Loan Part ID 3817572 : Principal 1.99, Interest 0.01, Delta 0.00, Fee 0.00    |null    |1.99    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-1.99   |1    |2017|
+|2017-01-17|Loan offer on Expansion And Growth Loan - 31162                               |null    |20.00   |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-20.00  |1    |2017|
+|2017-01-18|Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |0.28    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.28   |1    |2017|
+|2017-01-18|Loan Part ID 15915763 : Principal 20.00, Interest 0.12, Delta 0.16, Fee 0.05  |null    |20.00   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-20.00  |1    |2017|
+|2017-01-18|Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |0.10    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.10   |1    |2017|
+|2017-01-18|Loan Part ID 17545787 : Principal 20.00, Interest 0.00, Delta 0.10, Fee 0.05  |null    |20.00   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-20.00  |1    |2017|
+|2017-01-18|Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |1.31    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-1.31   |1    |2017|
+|2017-01-18|Loan Part ID 17410141 : Principal 40.00, Interest 0.11, Delta 1.20, Fee 0.10  |null    |40.00   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-40.00  |1    |2017|
+|2017-01-18|Loan offer on Property development in Bristol 3 - 31171                       |null    |80.00   |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-80.00  |1    |2017|
+|2017-01-18|Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |0.28    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.28   |1    |2017|
+|2017-01-18|Loan Part ID 14867049 : Principal 56.73, Interest 0.28, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-56.73  |1    |2017|
+|2017-01-18|Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.23   |1    |2017|
+|2017-01-18|Loan Part ID 14079968 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-55.06  |1    |2017|
+|2017-01-18|Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.16   |1    |2017|
+|2017-01-18|Loan Part ID 14562335 : Principal 55.90, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.90   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-55.90  |1    |2017|
+|2017-01-18|Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |0.19    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.19   |1    |2017|
+|2017-01-18|Loan Part ID 13761312 : Principal 54.21, Interest 0.19, Delta 0.00, Fee 0.14  |null    |54.21   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-54.21  |1    |2017|
+|2017-01-18|Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.27   |1    |2017|
+|2017-01-18|Loan Part ID 14876788 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-56.73  |1    |2017|
+|2017-01-18|Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |0.21    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.21   |1    |2017|
+|2017-01-18|Loan Part ID 15507324 : Principal 57.56, Interest 0.21, Delta 0.00, Fee 0.14  |null    |57.56   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-57.56  |1    |2017|
+|2017-01-18|Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |0.11    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.11   |1    |2017|
+|2017-01-18|Loan Part ID 13816340 : Principal 54.21, Interest 0.11, Delta 0.00, Fee 0.14  |null    |54.21   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-54.21  |1    |2017|
+|2017-01-18|Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |0.16    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.16   |1    |2017|
+|2017-01-18|Loan Part ID 14131524 : Principal 55.06, Interest 0.16, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-55.06  |1    |2017|
+|2017-01-18|Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |0.32    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.32   |1    |2017|
+|2017-01-18|Loan Part ID 14812140 : Principal 56.73, Interest 0.32, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-56.73  |1    |2017|
+|2017-01-18|Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.27   |1    |2017|
+19/03/05 01:16:47 INFO CodeGenerator: Code generated in 145.214091 ms
+|2017-01-18|Loan Part ID 15387393 : Principal 55.53, Interest 0.27, Delta 0.00, Fee 0.14  |null    |55.53   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-55.53  |1    |2017|
+|2017-01-18|Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |0.20    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.20   |1    |2017|
+|2017-01-18|Loan Part ID 15490031 : Principal 55.53, Interest 0.20, Delta 0.00, Fee 0.14  |null    |55.53   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-55.53  |1    |2017|
+|2017-01-18|Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |0.23    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.23   |1    |2017|
+|2017-01-18|Loan Part ID 14088317 : Principal 55.06, Interest 0.23, Delta 0.00, Fee 0.14  |null    |55.06   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-55.06  |1    |2017|
+|2017-01-18|Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |0.27    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.27   |1    |2017|
+|2017-01-18|Loan Part ID 14890325 : Principal 56.73, Interest 0.27, Delta 0.00, Fee 0.14  |null    |56.73   |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-56.73  |1    |2017|
+|2017-01-18|EPDQ ID: 3361413518 - TRANSFERIN ORDERID: a260448e-6482-4727-bb6b-bf82c7230cae|20000.00|null    |TRANSFER IN|Bank transfer gen type                    |TRANSFER cat|20000.00|1    |2017|
+|2017-01-18|Loan offer on Working Capital Loan - 31225                                    |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31227                               |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31228                               |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan offer on Working Capital Loan - 31229                                    |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31233                               |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan offer on Property Development Wokingham Berkshire 3 - 31235              |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan offer on Expansion And Growth Loan - 31243                               |null    |280.00  |Loan offer |LOAN_OFFER gen type                       |MISC cat    |-280.00 |1    |2017|
+|2017-01-18|Loan Part ID 17175996 : Principal 20.00, Interest 0.21, Delta 0.00, Fee 0.05  |null    |0.21    |Loan Part  |LOAN_PART gen type                        |LOAN cat    |-0.21   |1    |2017|
++----------+------------------------------------------------------------------------------+--------+--------+-----------+------------------------------------------+------------+--------+-----+----+
+```
+note:
+now extending on the same concept we create a clean function categorise all the data and clean up other columns
+		(time 0 : total time 0 mins)
+  </section>
+
+  <section data-markdown>
+## run the report
+```clojure
+  (.. (report-core/generate-report1 df1 "2017-05-01" "2018-05-01")
+      (show 5000 false))
+```
+```clojure
++----+-----+------------+--------+------------+------------+-------+-------+------------+------------+----------+--------+
+|year|month|TRANSFER cat|cum BT  |INTEREST cat|cum interest|FEE cat|cum fee|RECOVERY cat|cum recovery|cum return|balance |
++----+-----+------------+--------+------------+------------+-------+-------+------------+------------+----------+--------+
+|2017|5    |10000.00    |10000.00|227.42      |227.42      |-25.16 |-25.16 |null        |null        |202.26    |10202.26|
+|2017|6    |null        |10000.00|302.14      |529.56      |-33.89 |-59.05 |null        |null        |470.51    |10470.51|
+|2017|7    |null        |10000.00|304.07      |833.63      |-34.18 |-93.23 |null        |null        |740.40    |10740.40|
+|2017|8    |null        |10000.00|302.84      |1136.47     |-33.64 |-126.87|null        |null        |1009.60   |11009.60|
+|2017|9    |null        |10000.00|302.99      |1439.46     |-33.67 |-160.54|null        |null        |1278.92   |11278.92|
+|2017|10   |null        |10000.00|313.27      |1752.73     |-34.53 |-195.07|null        |null        |1557.66   |11557.66|
+|2017|11   |null        |10000.00|322.91      |2075.64     |-35.11 |-230.18|160.60      |160.60      |1845.46   |11845.46|
+|2017|12   |null        |10000.00|327.17      |2402.81     |-35.29 |-265.47|null        |160.60      |2137.34   |12137.34|
+|2018|1    |null        |10000.00|330.89      |2733.70     |-35.59 |-301.06|0.02        |160.62      |2432.64   |12432.64|
+|2018|2    |null        |10000.00|323.87      |3057.57     |-34.51 |-335.57|62.30       |222.92      |2722.00   |12722.00|
+|2018|3    |null        |10000.00|329.04      |3386.61     |-35.02 |-370.59|7.71        |230.63      |3016.02   |13016.02|
+|2018|4    |null        |10000.00|316.55      |3703.16     |-33.87 |-404.46|null        |230.63      |3298.70   |13298.70|
++----+-----+------------+--------+------------+------------+-------+-------+------------+------------+----------+--------+
+```
+note:
+		(time 0 : total time 0 mins)
+  </section>
+
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info about config & dependencies:
+			// - https://github.com/hakimel/reveal.js#configuration
+			// - https://github.com/hakimel/reveal.js#dependencies
+			Reveal.initialize({
+				transition: 'convex',
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+		</script>
+	</body>
+</html>
